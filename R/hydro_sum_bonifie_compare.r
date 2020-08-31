@@ -8,7 +8,7 @@
 #'
 #' @examples
 #' path<-'/home/tito/Documents/github/prsim/outaouais_sup_lynda/Frequentielles/Apports Latéraux Methode extrême PRT/Q10000/'
-#' Comparaison_Temiscamingue(path)
+#' sum_temiscamingue<-Comparaison_Temiscamingue(path)
 
 Comparaison_Temiscamingue<-function(path){
 
@@ -27,7 +27,7 @@ Comparaison_Temiscamingue<-function(path){
 
   for(file in files){
 
-    df<-tidyverse::read_csv(file)
+    df<-readr::read_csv(file)
 
     #somme jusqu'a temiscamingue
 
@@ -45,7 +45,7 @@ Comparaison_Temiscamingue<-function(path){
 
   df_test<-do.call(cbind,total_temiscamingue)
 
-  matplot(df_test,type='l',col='blue',lty=1)
+  matplot(df_test,type='l',col='blue',lty=1,xlab = 'jours juliens',ylab='Q')
   grid()
   return(sum_temiscamingue)
 
