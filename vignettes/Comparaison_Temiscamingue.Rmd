@@ -1,0 +1,24 @@
+---
+title: "Comparaison des apports intermédiaires pour le Lac Témiscamingue"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Comparaison_Temiscamingue}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+L'exemple suivant montre la comparaison de la somme des apports latéraux de l'étude de l'Outaouais Supérieur complétée en 2019 et les simulations de PRSIM. La comparaison se fait spécifiquement à l'entrée du bassin du Lac Témiscamingue.
+
+```{r ,message=FALSE,fig.width=12, fig.height=8}
+library(prsim.tools)
+path<-'/home/tito/Documents/github/prsim/outaouais_sup_lynda/Frequentielles/Apports_Lateraux_Methode_Extreme_prt/Q10000'
+sum_temiscamingue<-Comparaison_Temiscamingue(path)
+```
+
+Le data frame sum_temiscamingue contient les hydrogrammes des 20 scénarios utilisés dans l'étude de l'Outaouais Supérieur. La date de début de ces hydrogrammes est le XX.
+
+En deuxième partie, les apports produits par PRSIM sont également sommés jusqu'à Témiscamingue afin de pouvoir comparer les deux sources de débits extrêmes.
+
+```{r ,message=FALSE,fig.width=12, fig.height=8}
+path<-'/home/tito/Documents/github/prsim/outaouais_sup_lynda/Frequentielles/Apports_Lateraux_Methode_Extreme_prt/Q10000'
+sum_temiscamingue<-Comparaison_Temiscamingue(path)
+```

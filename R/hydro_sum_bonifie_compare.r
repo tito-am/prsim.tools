@@ -14,13 +14,14 @@ Comparaison_Temiscamingue<-function(path){
 
   require(readxl)
   require(tidyverse)
+  require(readr)
 
 
 
 
   setwd(path)
 
-  files<-list.files()
+  files<-list.files(pattern = '.csv')
 
 
   total_temiscamingue<-list()
@@ -45,7 +46,7 @@ Comparaison_Temiscamingue<-function(path){
 
   df_test<-do.call(cbind,total_temiscamingue)
 
-  matplot(df_test,type='l',col='blue',lty=1,xlab = 'jours juliens',ylab='Q')
+  matplot(df_test,type='l',col='blue',lty=1,xlab = 'jours juliens',ylab='Q', main="Scénarios de crue 1:10000 à Témiscamingue de l''étude de l''Outaouais Supérieur")
   grid()
   return(sum_temiscamingue)
 

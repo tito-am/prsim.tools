@@ -12,3 +12,7 @@ LazyData: true
 URL: https://github.com/tito-am/prsim.tools
 BugReports: https://github.com/tito-am/prsim.tools/issues
 RoxygenNote: 7.1.1
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
