@@ -1,0 +1,73 @@
+---
+title: "Comparaison des scénarios de crue de l'étude de l'Outaouais Supérieur avec les séries PRSIM"
+output: html_notebook
+---
+
+![Figure 1: Scénarios de crue de l'étude de l'Outaouais Supérieur (2019)](/home/tito/Documents/github/prsim.tools/images/annees.png) 
+
+
+### Outaouais Supérieur
+
+
+
+```{r Dozois ,message=FALSE,echo=FALSE,warning=FALSE}
+
+library(plotly)
+library(readr)
+library(tidyverse)
+
+#
+df<-read_csv('/home/tito/Documents/github/prsim/outaouais_sup_lynda/Frequentielles/Apports_Lateraux_Methode_Extreme_prt/Q10000/Q10000_1983_BV_P.csv')
+Bask<-as.data.frame(df['Dozois'])
+Qobs_prsim_mean<-Bask 
+jours_etude_2019<-seq(as.Date("2000/1/3"), as.Date("2000/1/3")+212, by = "day")
+
+
+
+#Statistiques sommaires PRSIM
+load('/home/tito/Dozois.Rdata')
+
+df_final_clean<-df_final[!duplicated(df_final$julian_day),]
+
+x <- seq(as.Date("2000/1/1"), as.Date("2000/12/31"), by = "day")
+random_y <- df_final_clean$MaxQ
+data <- data.frame(x, random_y)
+
+trace1<-df_final_clean$AvgQ
+trace2<-df_final_clean$MinQ
+trace3<-Qobs_prsim_mean
+
+
+fig <- plot_ly(data, x = ~x, y = ~random_y, name = 'Qmax',type = 'scatter', mode = 'lines',line = list(color = 'transparent'),showlegend = FALSE)
+fig <- fig %>% add_trace(y = ~trace2, name = 'Qmin', mode = 'lines', type = 'scatter', fill = 'tonexty', fillcolor='rgba(0,100,80,0.2)', line = list(color = 'transparent'),showlegend = FALSE) 
+
+fig <- fig %>% add_trace(y = ~trace1, name = 'Qavg', mode = 'lines',line = list(color='rgb(0,100,80)'),type = 'scatter')
+
+fig <- fig %>% add_trace(x=~jours_etude_2019,y = ~trace3, name = 'Qavg_obs', mode = 'lines',line = list(color='rgb(255,0,0)'),type = 'scatter') 
+
+fig <- fig %>% layout(title = "Average, High and Low PRSIM at Dozois",
+         paper_bgcolor='rgb(255,255,255)', plot_bgcolor='rgb(229,229,229)',
+         xaxis = list(title = "Days",
+                      gridcolor = 'rgb(255,255,255)',
+                      showgrid = TRUE,
+                      showline = FALSE,
+                      showticklabels = TRUE,
+                      tickcolor = 'rgb(127,127,127)',
+                      ticks = 'outside',
+                      zeroline = FALSE),
+         yaxis = list(title = "Streamflow (cms)",
+                      gridcolor = 'rgb(255,255,255)',
+                      showgrid = TRUE,
+                      showline = FALSE,
+                      showticklabels = TRUE,
+                      tickcolor = 'rgb(127,127,127)',
+                      ticks = 'outside',
+                      zeroline = FALSE))
+
+
+
+
+fig
+```
+
+

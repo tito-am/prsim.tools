@@ -1,0 +1,519 @@
+---
+title: 'PRSIM: Verification of summary statistics - Part II: Visualization'
+output: 
+html_document:
+mathjax: cdn.rawgit.com/mathjax/MathJax/2.7.1/MathJax.js
+
+---
+
+## Introduction
+
+This is a notebook intended to explain at large what we have done with PRSIM on the [Outaouais River Watershed](http://www.environnement.gouv.qc.ca/eau/bassinversant/bassins/outaouais/portrait-sommaire.pdf). First of all, let's get an idea of the area of study. 
+
+
+ 
+
+![Figure 1: Outaouais river watershed](/home/tito/Documents/github/prsim.tools/images/bassin_outaouais.png)
+
+The watershed surface is about 140 000 $km^{2}$ and consists of 42 basins. On the Outaouais river watershed we can find infrastructures that are designed to withstand PMF, 1:10 000 and 1:1 000 return year floods depending on the canadian dam classification.
+
+Our main interest in PRSIM is the fact that spatial and temporal intercorrelations are taken into account while producing the stochastic simulations.
+
+## Extreme floods at the basin level
+
+In our first trials with PRSIM we found out that for some basins certain unrealistic peakflows where simulated. Even for extreme cases. In fact, some 1:100 year peakflows where higher than our PMF (Probable maximum flood). In order to continue to explore the generation, we limited the kappa generation function to 0.9995 right-side limit. With this modification, we found out more realistic hydrogram shapes and the statistics up to 1:100 years return peakflow was coherent with what we calculated using the observations. **is this a correct procedure?**
+
+As said before, in order to explore our simulations we first calculated the marginal return periods at each basin of the Outaouais following the cunnane plotting positions and compare them to our inferences on the observed data.
+
+The next table is our simulated peakflow during spring for return periods up to 10 000 year flood:
+
+```{r Comparaison des quantiles de volume de printemps,message=FALSE,echo=FALSE,warning=FALSE}
+library(xlsx)
+library(kableExtra)
+file<-'/home/tito/Documents/github/prsim.tools/data/afl_series_obs_prsim_volume_pointe_1960-2017_vers2(1).xlsx'
+dt<-read.xlsx(file, 'rmarkdown_prt_volume', header=TRUE, colClasses=NA)
+
+dt %>%
+  kbl() %>%
+  kable_paper("hover", full_width = F)
+```
+
+As you can see, in some watersheds the right tail is pretty 'flat'. See at Rapide-2. Meaning that the difference in between the extreme quantiles is not very large.
+
+The next table is our simulated 70-day volume during spring for return periods up to 10 000 year flood:
+
+```{r Comparaison des quantiles de pointe de printemps,message=FALSE,echo=FALSE,warning=FALSE}
+library(xlsx)
+library(kableExtra)
+file<-'/home/tito/Documents/github/prsim.tools/data/afl_series_obs_prsim_volume_pointe_1960-2017_vers2(1).xlsx'
+dt<-read.xlsx(file, 'rmarkdown_prt_peakflow', header=TRUE, colClasses=NA)
+
+dt %>%
+  kbl() %>%
+  kable_paper("hover", full_width = F)
+```
+
+The next table is our simulated peakflow volume during summer-autumn for return periods up to 10 000 year flood:
+
+```{r Comparaison des quantiles de pointe de ete,message=FALSE,echo=FALSE,warning=FALSE}
+library(xlsx)
+library(kableExtra)
+file<-'/home/tito/Documents/github/prsim.tools/data/afl_series_obs_prsim_volume_pointe_1960-2017_vers2(1).xlsx'
+dt<-read.xlsx(file, 'rmarkdown_ete_peakflow', header=TRUE, colClasses=NA)
+
+dt %>%
+  kbl() %>%
+  kable_paper("hover", full_width = F)
+```
+## Summary statistics at the basin level
+
+As you will see in our summary statistic analyses, sometimes the observations entries show higher peaks than the simulations. Specially during summer. This time again, it's Rapide-2.
+
+Next, I compared the extent of the 170 000 prsim simulations **light green font** and also the mean **green line**. The observations forced into PRSIM (57 years) are in **red**. I plotted the maximum, the mean and the minimum.
+
+I will show some of the 43 basins. As you can see, most of the means seem to be well simulated. 
+
+### Gatineau
+
+```{r Baskatong,message=FALSE,echo=FALSE,warning=FALSE}
+library(plotly)
+library(readr)
+library(tidyverse)
+
+#
+load('/media/tito/TIIGE/PRSIM/obs_outaouais.Rdata')
+Bask<-as.data.frame(tests['Baskatong'])
+Qobs_prsim_mean<-Bask %>% group_by(Baskatong.MM,Baskatong.DD) %>%summarise(AvgQ=mean(Baskatong.Qobs,na.rm = TRUE))
+Qobs_prsim_max<-Bask %>% group_by(Baskatong.MM,Baskatong.DD) %>%summarise(MaxQ=max(Baskatong.Qobs,na.rm = TRUE))
+Qobs_prsim_min<-Bask %>% group_by(Baskatong.MM,Baskatong.DD) %>%summarise(MinQ=min(Baskatong.Qobs,na.rm = TRUE))
+
+#Scenario de Q10000 a Dozois dans l'etude de l'Outaouais Superieur (2019)
+path<-'/home/tito/Documents/github/prsim/outaouais_sup_lynda/Frequentielles/Apports_Lateraux_Methode_Extreme_prt/Q10000/'
+fichiers<-list.files(path,pattern = '.csv')
+Q10000_etude2019<-read_csv(paste0(path,fichiers[1]))
+jours_etude_2019<-seq(as.Date("2000/1/3"), as.Date("2000/1/3")+212, by = "day")
+
+#Statistiques sommaires PRSIM
+load('/home/tito/Baskatong.Rdata')
+
+df_final_clean<-df_final[!duplicated(df_final$julian_day),]
+
+x <- seq(as.Date("2000/1/1"), as.Date("2000/12/31"), by = "day")
+random_y <- df_final_clean$MaxQ
+data <- data.frame(x, random_y)
+
+trace1<-df_final_clean$AvgQ
+trace2<-df_final_clean$MinQ
+trace3<-Qobs_prsim_mean$AvgQ
+trace4<-Qobs_prsim_max$MaxQ
+trace5<-Qobs_prsim_min$MinQ
+
+fig <- plot_ly(data, x = ~x, y = ~random_y, name = 'Qmax',type = 'scatter', mode = 'lines',line = list(color = 'transparent'),showlegend = FALSE)
+fig <- fig %>% add_trace(y = ~trace2, name = 'Qmin', mode = 'lines', type = 'scatter', fill = 'tonexty', fillcolor='rgba(0,100,80,0.2)', line = list(color = 'transparent'),showlegend = FALSE) 
+
+fig <- fig %>% add_trace(y = ~trace1, name = 'Qavg', mode = 'lines',line = list(color='rgb(0,100,80)'),type = 'scatter')
+
+fig <- fig %>% add_trace(y = ~trace3, name = 'Qavg_obs', mode = 'lines',line = list(color='rgb(255,0,0)'),type = 'scatter') 
+fig <- fig %>% add_trace(y = ~trace4, name = 'Qmax_obs', mode = 'lines',line = list(color='rgb(255,0,0)'),type = 'scatter') 
+fig <- fig %>% add_trace(y = ~trace5, name = 'Qmin_obs', mode = 'lines',line = list(color='rgb(255,0,0)'),type = 'scatter') 
+
+
+
+fig <- fig %>% layout(title = "Average, High and Low PRSIM at Baskatong",
+         paper_bgcolor='rgb(255,255,255)', plot_bgcolor='rgb(229,229,229)',
+         xaxis = list(title = "Days",
+                      gridcolor = 'rgb(255,255,255)',
+                      showgrid = TRUE,
+                      showline = FALSE,
+                      showticklabels = TRUE,
+                      tickcolor = 'rgb(127,127,127)',
+                      ticks = 'outside',
+                      zeroline = FALSE),
+         yaxis = list(title = "Streamflow (cms)",
+                      gridcolor = 'rgb(255,255,255)',
+                      showgrid = TRUE,
+                      showline = FALSE,
+                      showticklabels = TRUE,
+                      tickcolor = 'rgb(127,127,127)',
+                      ticks = 'outside',
+                      zeroline = FALSE))
+
+
+
+
+fig
+```
+
+
+
+### Outaouais Superieur
+
+```{r Dozois ,message=FALSE,echo=FALSE,warning=FALSE}
+
+library(plotly)
+library(readr)
+library(tidyverse)
+
+#
+load('/media/tito/TIIGE/PRSIM/obs_outaouais.Rdata')
+Bask<-as.data.frame(tests['Dozois'])
+Qobs_prsim_mean<-Bask %>% group_by(Dozois.MM,Dozois.DD) %>%summarise(AvgQ=mean(Dozois.Qobs,na.rm = TRUE))
+Qobs_prsim_max<-Bask %>% group_by(Dozois.MM,Dozois.DD) %>%summarise(MaxQ=max(Dozois.Qobs,na.rm = TRUE))
+Qobs_prsim_min<-Bask %>% group_by(Dozois.MM,Dozois.DD) %>%summarise(MinQ=min(Dozois.Qobs,na.rm = TRUE))
+
+#Scenario de Q10000 a Dozois dans l'etude de l'Outaouais Superieur (2019)
+path<-'/home/tito/Documents/github/prsim/outaouais_sup_lynda/Frequentielles/Apports_Lateraux_Methode_Extreme_prt/Q10000/'
+fichiers<-list.files(path,pattern = '.csv')
+Q10000_etude2019<-read_csv(paste0(path,fichiers[1]))
+jours_etude_2019<-seq(as.Date("2000/1/3"), as.Date("2000/1/3")+212, by = "day")
+
+#Statistiques sommaires PRSIM
+load('/home/tito/Dozois.Rdata')
+
+df_final_clean<-df_final[!duplicated(df_final$julian_day),]
+
+x <- seq(as.Date("2000/1/1"), as.Date("2000/12/31"), by = "day")
+random_y <- df_final_clean$MaxQ
+data <- data.frame(x, random_y)
+
+trace1<-df_final_clean$AvgQ
+trace2<-df_final_clean$MinQ
+trace3<-Qobs_prsim_mean$AvgQ
+trace4<-Qobs_prsim_max$MaxQ
+trace5<-Qobs_prsim_min$MinQ
+
+fig <- plot_ly(data, x = ~x, y = ~random_y, name = 'Qmax',type = 'scatter', mode = 'lines',line = list(color = 'transparent'),showlegend = FALSE)
+fig <- fig %>% add_trace(y = ~trace2, name = 'Qmin', mode = 'lines', type = 'scatter', fill = 'tonexty', fillcolor='rgba(0,100,80,0.2)', line = list(color = 'transparent'),showlegend = FALSE) 
+
+fig <- fig %>% add_trace(y = ~trace1, name = 'Qavg', mode = 'lines',line = list(color='rgb(0,100,80)'),type = 'scatter')
+
+fig <- fig %>% add_trace(y = ~trace3, name = 'Qavg_obs', mode = 'lines',line = list(color='rgb(255,0,0)'),type = 'scatter') 
+fig <- fig %>% add_trace(y = ~trace4, name = 'Qmax_obs', mode = 'lines',line = list(color='rgb(255,0,0)'),type = 'scatter') 
+fig <- fig %>% add_trace(y = ~trace5, name = 'Qmin_obs', mode = 'lines',line = list(color='rgb(255,0,0)'),type = 'scatter') 
+
+
+
+fig <- fig %>% layout(title = "Average, High and Low PRSIM at Dozois",
+         paper_bgcolor='rgb(255,255,255)', plot_bgcolor='rgb(229,229,229)',
+         xaxis = list(title = "Days",
+                      gridcolor = 'rgb(255,255,255)',
+                      showgrid = TRUE,
+                      showline = FALSE,
+                      showticklabels = TRUE,
+                      tickcolor = 'rgb(127,127,127)',
+                      ticks = 'outside',
+                      zeroline = FALSE),
+         yaxis = list(title = "Streamflow (cms)",
+                      gridcolor = 'rgb(255,255,255)',
+                      showgrid = TRUE,
+                      showline = FALSE,
+                      showticklabels = TRUE,
+                      tickcolor = 'rgb(127,127,127)',
+                      ticks = 'outside',
+                      zeroline = FALSE))
+
+
+
+
+fig
+```
+
+```{r Lac Victoria et Lac Granet ,message=FALSE,echo=FALSE,warning=FALSE}
+
+library(plotly)
+library(readr)
+library(tidyverse)
+
+#
+load('/media/tito/TIIGE/PRSIM/obs_outaouais.Rdata')
+Bask<-as.data.frame(tests['Lac Victoria et lac Granet'])
+Qobs_prsim_mean<-Bask %>% group_by(Lac.Victoria.et.lac.Granet.MM,Lac.Victoria.et.lac.Granet.DD) %>%summarise(AvgQ=mean(Lac.Victoria.et.lac.Granet.Qobs,na.rm = TRUE))
+Qobs_prsim_max<-Bask %>% group_by(Lac.Victoria.et.lac.Granet.MM,Lac.Victoria.et.lac.Granet.DD) %>%summarise(MaxQ=max(Lac.Victoria.et.lac.Granet.Qobs,na.rm = TRUE))
+Qobs_prsim_min<-Bask %>% group_by(Lac.Victoria.et.lac.Granet.MM,Lac.Victoria.et.lac.Granet.DD) %>%summarise(MinQ=min(Lac.Victoria.et.lac.Granet.Qobs,na.rm = TRUE))
+
+#Scenario de Q10000 a Dozois dans l'etude de l'Outaouais Superieur (2019)
+path<-'/home/tito/Documents/github/prsim/outaouais_sup_lynda/Frequentielles/Apports_Lateraux_Methode_Extreme_prt/Q10000/'
+fichiers<-list.files(path,pattern = '.csv')
+Q10000_etude2019<-read_csv(paste0(path,fichiers[1]))
+jours_etude_2019<-seq(as.Date("2000/1/3"), as.Date("2000/1/3")+212, by = "day")
+
+#Statistiques sommaires PRSIM
+load('/home/tito/Lac Victoria et lac Granet.Rdata')
+
+df_final_clean<-df_final[!duplicated(df_final$julian_day),]
+
+x <- seq(as.Date("2000/1/1"), as.Date("2000/12/31"), by = "day")
+random_y <- df_final_clean$MaxQ
+data <- data.frame(x, random_y)
+
+trace1<-df_final_clean$AvgQ
+trace2<-df_final_clean$MinQ
+trace3<-Qobs_prsim_mean$AvgQ
+trace4<-Qobs_prsim_max$MaxQ
+trace5<-Qobs_prsim_min$MinQ
+
+fig <- plot_ly(data, x = ~x, y = ~random_y, name = 'Qmax',type = 'scatter', mode = 'lines',line = list(color = 'transparent'),showlegend = FALSE)
+fig <- fig %>% add_trace(y = ~trace2, name = 'Qmin', mode = 'lines', type = 'scatter', fill = 'tonexty', fillcolor='rgba(0,100,80,0.2)', line = list(color = 'transparent'),showlegend = FALSE) 
+
+fig <- fig %>% add_trace(y = ~trace1, name = 'Qavg', mode = 'lines',line = list(color='rgb(0,100,80)'),type = 'scatter')
+
+fig <- fig %>% add_trace(y = ~trace3, name = 'Qavg_obs', mode = 'lines',line = list(color='rgb(255,0,0)'),type = 'scatter') 
+fig <- fig %>% add_trace(y = ~trace4, name = 'Qmax_obs', mode = 'lines',line = list(color='rgb(255,0,0)'),type = 'scatter') 
+fig <- fig %>% add_trace(y = ~trace5, name = 'Qmin_obs', mode = 'lines',line = list(color='rgb(255,0,0)'),type = 'scatter') 
+
+
+
+fig <- fig %>% layout(title = "Average, High and Low PRSIM at Lac Victoria et lac Granet",
+         paper_bgcolor='rgb(255,255,255)', plot_bgcolor='rgb(229,229,229)',
+         xaxis = list(title = "Days",
+                      gridcolor = 'rgb(255,255,255)',
+                      showgrid = TRUE,
+                      showline = FALSE,
+                      showticklabels = TRUE,
+                      tickcolor = 'rgb(127,127,127)',
+                      ticks = 'outside',
+                      zeroline = FALSE),
+         yaxis = list(title = "Streamflow (cms)",
+                      gridcolor = 'rgb(255,255,255)',
+                      showgrid = TRUE,
+                      showline = FALSE,
+                      showticklabels = TRUE,
+                      tickcolor = 'rgb(127,127,127)',
+                      ticks = 'outside',
+                      zeroline = FALSE))
+
+
+
+
+fig
+```
+
+```{r Rapide-2 ,message=FALSE,echo=FALSE,warning=FALSE}
+
+library(plotly)
+library(readr)
+library(tidyverse)
+
+#
+load('/media/tito/TIIGE/PRSIM/obs_outaouais.Rdata')
+Bask<-as.data.frame(tests['Rapide-2'])
+Qobs_prsim_mean<-Bask %>% group_by(Rapide.2.MM,Rapide.2.DD) %>%summarise(AvgQ=mean(Rapide.2.Qobs,na.rm = TRUE))
+Qobs_prsim_max<-Bask %>% group_by(Rapide.2.MM,Rapide.2.DD) %>%summarise(MaxQ=max(Rapide.2.Qobs,na.rm = TRUE))
+Qobs_prsim_min<-Bask %>% group_by(Rapide.2.MM,Rapide.2.DD) %>%summarise(MinQ=min(Rapide.2.Qobs,na.rm = TRUE))
+
+#Scenario de Q10000 a Dozois dans l'etude de l'Outaouais Superieur (2019)
+path<-'/home/tito/Documents/github/prsim/outaouais_sup_lynda/Frequentielles/Apports_Lateraux_Methode_Extreme_prt/Q10000/'
+fichiers<-list.files(path,pattern = '.csv')
+Q10000_etude2019<-read_csv(paste0(path,fichiers[1]))
+jours_etude_2019<-seq(as.Date("2000/1/3"), as.Date("2000/1/3")+212, by = "day")
+
+#Statistiques sommaires PRSIM
+load('/home/tito/Rapide-2.Rdata')
+
+df_final_clean<-df_final[!duplicated(df_final$julian_day),]
+
+x <- seq(as.Date("2000/1/1"), as.Date("2000/12/31"), by = "day")
+random_y <- df_final_clean$MaxQ
+data <- data.frame(x, random_y)
+
+trace1<-df_final_clean$AvgQ
+trace2<-df_final_clean$MinQ
+trace3<-Qobs_prsim_mean$AvgQ
+trace4<-Qobs_prsim_max$MaxQ
+trace5<-Qobs_prsim_min$MinQ
+
+fig <- plot_ly(data, x = ~x, y = ~random_y, name = 'Qmax',type = 'scatter', mode = 'lines',line = list(color = 'transparent'),showlegend = FALSE)
+fig <- fig %>% add_trace(y = ~trace2, name = 'Qmin', mode = 'lines', type = 'scatter', fill = 'tonexty', fillcolor='rgba(0,100,80,0.2)', line = list(color = 'transparent'),showlegend = FALSE) 
+
+fig <- fig %>% add_trace(y = ~trace1, name = 'Qavg', mode = 'lines',line = list(color='rgb(0,100,80)'),type = 'scatter')
+
+fig <- fig %>% add_trace(y = ~trace3, name = 'Qavg_obs', mode = 'lines',line = list(color='rgb(255,0,0)'),type = 'scatter') 
+fig <- fig %>% add_trace(y = ~trace4, name = 'Qmax_obs', mode = 'lines',line = list(color='rgb(255,0,0)'),type = 'scatter') 
+fig <- fig %>% add_trace(y = ~trace5, name = 'Qmin_obs', mode = 'lines',line = list(color='rgb(255,0,0)'),type = 'scatter') 
+
+
+
+fig <- fig %>% layout(title = "Average, High and Low PRSIM at Rapide-2",
+         paper_bgcolor='rgb(255,255,255)', plot_bgcolor='rgb(229,229,229)',
+         xaxis = list(title = "Days",
+                      gridcolor = 'rgb(255,255,255)',
+                      showgrid = TRUE,
+                      showline = FALSE,
+                      showticklabels = TRUE,
+                      tickcolor = 'rgb(127,127,127)',
+                      ticks = 'outside',
+                      zeroline = FALSE),
+         yaxis = list(title = "Streamflow (cms)",
+                      gridcolor = 'rgb(255,255,255)',
+                      showgrid = TRUE,
+                      showline = FALSE,
+                      showticklabels = TRUE,
+                      tickcolor = 'rgb(127,127,127)',
+                      ticks = 'outside',
+                      zeroline = FALSE))
+
+
+
+
+fig
+```
+
+```{r Rapide-7 ,message=FALSE,echo=FALSE,warning=FALSE}
+
+library(plotly)
+library(readr)
+library(tidyverse)
+
+#
+load('/media/tito/TIIGE/PRSIM/obs_outaouais.Rdata')
+Bask<-as.data.frame(tests['Rapide-7'])
+Qobs_prsim_mean<-Bask %>% group_by(Rapide.7.MM,Rapide.7.DD) %>%summarise(AvgQ=mean(Rapide.7.Qobs,na.rm = TRUE))
+Qobs_prsim_max<-Bask %>% group_by(Rapide.7.MM,Rapide.7.DD) %>%summarise(MaxQ=max(Rapide.7.Qobs,na.rm = TRUE))
+Qobs_prsim_min<-Bask %>% group_by(Rapide.7.MM,Rapide.7.DD) %>%summarise(MinQ=min(Rapide.7.Qobs,na.rm = TRUE))
+
+#Scenario de Q10000 a Dozois dans l'etude de l'Outaouais Superieur (2019)
+path<-'/home/tito/Documents/github/prsim/outaouais_sup_lynda/Frequentielles/Apports_Lateraux_Methode_Extreme_prt/Q10000/'
+fichiers<-list.files(path,pattern = '.csv')
+Q10000_etude2019<-read_csv(paste0(path,fichiers[1]))
+jours_etude_2019<-seq(as.Date("2000/1/3"), as.Date("2000/1/3")+212, by = "day")
+
+#Statistiques sommaires PRSIM
+load('/home/tito/Rapide-7.Rdata')
+
+df_final_clean<-df_final[!duplicated(df_final$julian_day),]
+
+x <- seq(as.Date("2000/1/1"), as.Date("2000/12/31"), by = "day")
+random_y <- df_final_clean$MaxQ
+data <- data.frame(x, random_y)
+
+trace1<-df_final_clean$AvgQ
+trace2<-df_final_clean$MinQ
+trace3<-Qobs_prsim_mean$AvgQ
+trace4<-Qobs_prsim_max$MaxQ
+trace5<-Qobs_prsim_min$MinQ
+
+fig <- plot_ly(data, x = ~x, y = ~random_y, name = 'Qmax',type = 'scatter', mode = 'lines',line = list(color = 'transparent'),showlegend = FALSE)
+fig <- fig %>% add_trace(y = ~trace2, name = 'Qmin', mode = 'lines', type = 'scatter', fill = 'tonexty', fillcolor='rgba(0,100,80,0.2)', line = list(color = 'transparent'),showlegend = FALSE) 
+
+fig <- fig %>% add_trace(y = ~trace1, name = 'Qavg', mode = 'lines',line = list(color='rgb(0,100,80)'),type = 'scatter')
+
+fig <- fig %>% add_trace(y = ~trace3, name = 'Qavg_obs', mode = 'lines',line = list(color='rgb(255,0,0)'),type = 'scatter') 
+fig <- fig %>% add_trace(y = ~trace4, name = 'Qmax_obs', mode = 'lines',line = list(color='rgb(255,0,0)'),type = 'scatter') 
+fig <- fig %>% add_trace(y = ~trace5, name = 'Qmin_obs', mode = 'lines',line = list(color='rgb(255,0,0)'),type = 'scatter') 
+
+
+
+fig <- fig %>% layout(title = "Average, High and Low PRSIM at Rapide-7",
+         paper_bgcolor='rgb(255,255,255)', plot_bgcolor='rgb(229,229,229)',
+         xaxis = list(title = "Days",
+                      gridcolor = 'rgb(255,255,255)',
+                      showgrid = TRUE,
+                      showline = FALSE,
+                      showticklabels = TRUE,
+                      tickcolor = 'rgb(127,127,127)',
+                      ticks = 'outside',
+                      zeroline = FALSE),
+         yaxis = list(title = "Streamflow (cms)",
+                      gridcolor = 'rgb(255,255,255)',
+                      showgrid = TRUE,
+                      showline = FALSE,
+                      showticklabels = TRUE,
+                      tickcolor = 'rgb(127,127,127)',
+                      ticks = 'outside',
+                      zeroline = FALSE))
+
+
+
+
+fig
+```
+
+```{r Lac des Quinze ,message=FALSE,echo=FALSE,warning=FALSE}
+
+library(plotly)
+library(readr)
+library(tidyverse)
+
+#
+load('/media/tito/TIIGE/PRSIM/obs_outaouais.Rdata')
+Bask<-as.data.frame(tests['Lac des Quinze'])
+Qobs_prsim_mean<-Bask %>% group_by(Lac.des.Quinze.MM,Lac.des.Quinze.DD) %>%summarise(AvgQ=mean(Lac.des.Quinze.Qobs,na.rm = TRUE))
+Qobs_prsim_max<-Bask %>% group_by(Lac.des.Quinze.MM,Lac.des.Quinze.DD) %>%summarise(MaxQ=max(Lac.des.Quinze.Qobs,na.rm = TRUE))
+Qobs_prsim_min<-Bask %>% group_by(Lac.des.Quinze.MM,Lac.des.Quinze.DD) %>%summarise(MinQ=min(Lac.des.Quinze.Qobs,na.rm = TRUE))
+
+#Scenario de Q10000 a Dozois dans l'etude de l'Outaouais Superieur (2019)
+path<-'/home/tito/Documents/github/prsim/outaouais_sup_lynda/Frequentielles/Apports_Lateraux_Methode_Extreme_prt/Q10000/'
+fichiers<-list.files(path,pattern = '.csv')
+Q10000_etude2019<-read_csv(paste0(path,fichiers[1]))
+jours_etude_2019<-seq(as.Date("2000/1/3"), as.Date("2000/1/3")+212, by = "day")
+
+#Statistiques sommaires PRSIM
+load('/home/tito/Lac des Quinze.Rdata')
+
+df_final_clean<-df_final[!duplicated(df_final$julian_day),]
+
+x <- seq(as.Date("2000/1/1"), as.Date("2000/12/31"), by = "day")
+random_y <- df_final_clean$MaxQ
+data <- data.frame(x, random_y)
+
+trace1<-df_final_clean$AvgQ
+trace2<-df_final_clean$MinQ
+trace3<-Qobs_prsim_mean$AvgQ
+trace4<-Qobs_prsim_max$MaxQ
+trace5<-Qobs_prsim_min$MinQ
+
+fig <- plot_ly(data, x = ~x, y = ~random_y, name = 'Qmax',type = 'scatter', mode = 'lines',line = list(color = 'transparent'),showlegend = FALSE)
+fig <- fig %>% add_trace(y = ~trace2, name = 'Qmin', mode = 'lines', type = 'scatter', fill = 'tonexty', fillcolor='rgba(0,100,80,0.2)', line = list(color = 'transparent'),showlegend = FALSE) 
+
+fig <- fig %>% add_trace(y = ~trace1, name = 'Qavg', mode = 'lines',line = list(color='rgb(0,100,80)'),type = 'scatter')
+
+fig <- fig %>% add_trace(y = ~trace3, name = 'Qavg_obs', mode = 'lines',line = list(color='rgb(255,0,0)'),type = 'scatter') 
+fig <- fig %>% add_trace(y = ~trace4, name = 'Qmax_obs', mode = 'lines',line = list(color='rgb(255,0,0)'),type = 'scatter') 
+fig <- fig %>% add_trace(y = ~trace5, name = 'Qmin_obs', mode = 'lines',line = list(color='rgb(255,0,0)'),type = 'scatter') 
+
+
+
+fig <- fig %>% layout(title = "Average, High and Low PRSIM at Rapide-7",
+         paper_bgcolor='rgb(255,255,255)', plot_bgcolor='rgb(229,229,229)',
+         xaxis = list(title = "Days",
+                      gridcolor = 'rgb(255,255,255)',
+                      showgrid = TRUE,
+                      showline = FALSE,
+                      showticklabels = TRUE,
+                      tickcolor = 'rgb(127,127,127)',
+                      ticks = 'outside',
+                      zeroline = FALSE),
+         yaxis = list(title = "Streamflow (cms)",
+                      gridcolor = 'rgb(255,255,255)',
+                      showgrid = TRUE,
+                      showline = FALSE,
+                      showticklabels = TRUE,
+                      tickcolor = 'rgb(127,127,127)',
+                      ticks = 'outside',
+                      zeroline = FALSE))
+
+
+
+
+fig
+```
+
+
+
+**Future work**
+
+* Increase the probability of generation (Kappa) 
+* Do seasonality analysis (Boxplots per season as in Manuela's vignettes)
+* Cross-correlation     
+  + PACF, ACf (Replicate Manuela's vignettes with our 170 000 simulations)     
+  + Madogram (Explore Pierre Ribatet package. Try to replicate P-Madogram in Manuela's article)
+
+**Questions**
+
+* What to do with Rapide-2 type of case?
+* Could you please explain more in depth the interpretation of PACF, ACF and P-Madogram?
+
+
+**Thank you!**
+
+

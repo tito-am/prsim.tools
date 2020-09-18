@@ -1,0 +1,101 @@
+---
+title: "PRSIM: Vérification des statistiques sommaires - Partie I: Calcul des Rdata"
+output: html_notebook
+---
+
+Dans ce document de travail, on vérifiera les points suivants sur les simulations PRSIM:
+
+- Adéquation de la tendance centrale par jour julien (moyenne).
+- Adéquation des statistiques annuelles (moyenne, écart-type, skewness,kurtosis).
+- Comparaison de la couverture des séries stochastiques avec les séries choisies parmi les 20 simulations dans l'étude de l'Outaouais Supérieur pour la crue de retour 1:10000 ans.
+- Choix du membre représentant la crue ayant un retour 1:10000 pour la pointe.
+
+Pour commencer, regardons à Dozois.
+
+```{r,message=FALSE}
+library(plotly)
+library(readr)
+#Scenario de Q10000 a Dozois dans l'etude de l'Outaouais Superieur (2019)
+path<-'/home/tito/Documents/github/prsim/outaouais_sup_lynda/Frequentielles/Apports_Lateraux_Methode_Extreme_prt/Q10000/'
+fichiers<-list.files(path,pattern = '.csv')
+Q10000_etude2019<-read_csv(paste0(path,fichiers[1]))
+jours_etude_2019<-seq(as.Date("2000/1/3"), as.Date("2000/1/3")+212, by = "day")
+#le scenario choisi pour Dozois etait l'annee 
+#Statistiques sommaires des series prsim
+
+
+require(sparklyr)
+require(dplyr)
+require(tidyr)
+
+bvs<-list.files('/media/tito/TIIGE/PRSIM/0.9995/bv_csv/')
+
+path<-'/media/tito/TIIGE/PRSIM/0.9995/'
+
+for(bv in bvs){
+  
+config <- spark_config()
+
+config$`sparklyr.shell.driver-memory` <- "4G"
+config$`sparklyr.shell.executor-memory` <- "4G"
+config$`spark.yarn.executor.memoryOverhead` <- "512"
+config$`sparklyr.cores.local` <- 6
+
+
+
+# Connect to local cluster with custom configuration
+sc <- spark_connect(master = "local", config = config)
+
+spec_with_r <- sapply(read.csv('/media/tito/TIIGE/PRSIM/0.9995/bv_csv/Dozois/1-Dozois-r1.csv', nrows = 1), class)
+  
+#lecture en lazy loading des 170 000 simulations de prsim
+start_time = Sys.time()
+testo<-spark_read_csv(sc = sc,path = paste0('/media/tito/TIIGE/PRSIM/0.9995/bv_csv/',bv,'/'),columns=spec_with_r,memory = FALSE)
+end_time = Sys.time()
+end_time - start_time
+
+
+df_mean_per_julian_day = testo %>% group_by(julian_day) %>% summarise(AvgQ=mean(value,na.rm = TRUE))%>% collect()
+df_max_per_julian_day = testo %>% group_by(julian_day) %>% summarise(MaxQ=max(value,na.rm = TRUE))%>% collect()
+df_min_per_julian_day = testo %>% group_by(julian_day) %>% summarise(MinQ=min(value,na.rm = TRUE))%>% collect()
+
+
+df1<-merge(df_mean_per_julian_day,df_max_per_julian_day)
+df_final<-merge(df1,df_min_per_julian_day)
+
+filename<-paste0('/home/tito/',bv,'.Rdata')
+save(df_final, file = filename)
+
+spark_disconnect(sc)
+  
+}
+
+  
+  
+  
+  
+  
+  
+  
+
+
+x <- jours_etude_2019
+y <-Q10000_etude2019$Dozois
+data <- data.frame(x, y)
+
+fig <- plot_ly(data, x = ~x, y = ~y, type = 'scatter', mode = 'lines')
+
+fig
+```
+
+La seconde partie de cette analyse traitera de la fonction d'auto-corrélation (ACF) entre les bassins composant le grand bassin versant des Outaouais.
+
+```{r}
+
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
