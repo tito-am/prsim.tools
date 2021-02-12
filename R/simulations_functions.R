@@ -1,6 +1,6 @@
 #' Création des fichiers CSV de pointe à partir des simulations PRSIM
 #'
-#' Parallélisation de la génération des volumes. Fournit les intrants pour le calcul des quantiles.
+#' Parallélisation de la génération des csv. Fournit les intrants pour le calcul des quantiles.
 #'
 #' @param path Répertoire où se retrouvent les fichiers rdata produits par PRSIM (sims_final)
 #' 
@@ -16,13 +16,7 @@
 #' @exemples
 #' @export
 prsim_rdata_to_csv<-function(path){
-  
-  require(reshape2)
-  require(readr)
-  require(parallel)
-  require(MASS)
-  require(foreach)
-  require(doParallel)
+
   
 
   numCores <- detectCores()
@@ -90,7 +84,7 @@ prsim_rdata_to_csv<-function(path){
 #'
 #' Parallélisation de la génération des volumes. Fournit les intrants pour le calcul des quantiles.
 #'
-#' @param path A data.frame containing at least one numeric column
+#' @param path Répertoire où se retrouvent les fichiers rdata produits par PRSIM (sims_final)
 #' 
 #' @import reshape2
 #' @import readr
@@ -177,6 +171,23 @@ prsim_rdata_to_csv_volume<-function(path){
     }
     
   }}
+#' Création des fichiers CSV de débit annuel à partir des simulations PRSIM pour l'entrée à HEC-RESSIM
+#'
+#' Parallélisation de la génération des fichiers. Fournit les intrants pour le calcul des quantiles.
+#'
+#' @param path Répertoire où se retrouvent les fichiers rdata produits par PRSIM (sims_final)
+#' 
+#' @import reshape2
+#' @import readr
+#' @import zoo
+#' @import dplyr
+#' @import roll
+#' @import parallel
+#' @import MASS
+#' @import foreach
+#' @import doParallel
+#' @exemples
+#' @export
 prsim_rdata_to_hecressim_csv<-function(path){
   
   require(sparklyr)
@@ -222,4 +233,148 @@ prsim_rdata_to_hecressim_csv<-function(path){
       }
     }
   }}
+#' Calcul des quantiles de crue de pointe et de volume pour le printemps et l'automne à partir des simulations PRSIM
+#'
+#' Parallélisation de la génération des fichiers. Fournit les intrants pour le calcul des quantiles.
+#'
+#' @param path Répertoire où se retrouvent les fichiers rdata produits par PRSIM (sims_final)
+#' 
+#' @import reshape2
+#' @import readr
+#' @import zoo
+#' @import dplyr
+#' @import roll
+#' @import parallel
+#' @import MASS
+#' @import foreach
+#' @import doParallel
+#' @exemples
+#' @export
+prsim_csv_to_ecdf_csv<-function(path){
 
+  
+  #repertoire general
+  #path<-'/media/tito/TIIGE/PRSIM/0.9997_harm_mb/'
+  
+  #ecdf cunnane
+  ecdf_cunnane<-function (x) 
+  {
+    x <- sort(x)
+    n <- length(x)
+    if (n < 1) 
+      stop("'x' must have 1 or more non-missing values")
+    vals <- unique(x)
+    rval <- approxfun(vals, cumsum(tabulate(match(x, vals))-0.4)/(n+0.2), 
+                      method = "constant", yleft = 0, yright = 1, f = 0, ties = "ordered")
+    class(rval) <- c("ecdf", "stepfun", class(rval))
+    assign("nobs", n, envir = environment(rval))
+    attr(rval, "call") <- sys.call()
+    rval
+  }
+  #configuration pour les calculs effectues sur le spark dataframe
+  # Initialize configuration with defaults
+  setwd(path)
+  config <- spark_config()
+  
+  config$`sparklyr.shell.driver-memory` <- "2G"
+  config$`sparklyr.shell.executor-memory` <- "2G"
+  config$`spark.yarn.executor.memoryOverhead` <- "512"
+  config$`sparklyr.cores.local` <- 9
+  
+  # Connect to local cluster with custom configuration
+  sc <- spark_connect(master = "local", config = config)
+  
+  spec_with_r <- sapply(read.csv(paste0(path,"bv_csv/Bark Lake/1-Bark Lake-r1.csv"), nrows = 10), class)
+  
+  quantiles_qinter_bvs<-list()
+  #boucle a faire
+  bvs<-list.files(paste0(path,'bv_csv/'))
+  
+  for(bv in bvs){
+    testo<-spark_read_csv(sc = sc,path = paste(path,'bv_csv/',bv,'/',sep=''),columns=spec_with_r,memory = FALSE)
+    
+    src_tbls(sc)
+    #target <- c("summer", "winter")
+    res=testo%>%filter(season == 'spring')%>%group_by(YYYY,gen_number,variable)%>%summarize(max=max(value))%>%collect()
+    #res=testo%>%filter(season %in% target)%>%group_by(YYYY,gen_number,variable)%>%summarize(max=max(value))%>%collect()
+    
+    filename<-paste(path,'max_prt_pointes/',bv,'-PRSIM-Kappa.Rdata',sep='')
+    save(res, file = filename)
+    
+    
+    
+    #calcul des quantiles
+    
+    Fn<- ecdf_cunnane(res$max)
+    #prendre les codes pour cunnane
+    quantiles_qinter<-data.frame(quantiles=quantile(Fn, prob = c((1-(1/10000)),(1-(1/2000)),(1-(1/1000)),(1-(1/200)),(1-(1/100)),(1-(1/50)),(1-(1/20)),(1-(1/10)),(1-(1/2))), names = FALSE),row.names=c(10000,2000,1000,200,100,50,20,10,2))
+    quantiles_qinter_bvs[[bv]]<-quantiles_qinter
+  }
+  
+  
+  spark_disconnect(sc)
+  
+  #reorganiser la liste
+  
+  df <- data.frame(matrix(unlist(quantiles_qinter_bvs), nrow=length(quantiles_qinter_bvs), byrow=T))
+  rownames(df)<-names(quantiles_qinter_bvs)
+  colnames(df)<-c(10000,2000,1000,200,100,50,20,10,2)
+  write.csv(df,'quantiles_prt_outaouais_prelim_prsim_kappaLD_printemps_09997.csv')
+  
+  
+  ####ete-automne####
+  
+  #configuration pour les calculs effectues sur le spark dataframe
+  # Initialize configuration with defaults
+  setwd(path)
+  config <- spark_config()
+  
+  config$`sparklyr.shell.driver-memory` <- "2G"
+  config$`sparklyr.shell.executor-memory` <- "2G"
+  config$`spark.yarn.executor.memoryOverhead` <- "512"
+  
+  # Connect to local cluster with custom configuration
+  sc <- spark_connect(master = "local", config = config)
+  
+  spec_with_r <- sapply(read.csv(paste0(path,"bv_csv/Bark Lake/1-Bark Lake-r1.csv"), nrows = 10), class)
+  
+  quantiles_qinter_bvs<-list()
+  #boucle a faire
+  bvs<-list.files(paste0(path,'bv_csv/'))
+  
+  for(bv in bvs){
+    testo<-spark_read_csv(sc = sc,path = paste(path,'bv_csv/',bv,'/',sep=''),columns=spec_with_r,memory = FALSE)
+    
+    src_tbls(sc)
+    target <- c("summer", "winter")
+    #res=testo%>%filter(season == 'spring')%>%group_by(YYYY,gen_number,variable)%>%summarize(max=max(value))%>%collect()
+    res=testo%>%filter(season %in% target)%>%group_by(YYYY,gen_number,variable)%>%summarize(max=max(value))%>%collect()
+    
+    filename<-paste(path,'max_ete_pointes/',bv,'-PRSIM-Kappa.Rdata',sep='')
+    save(res, file = filename)
+    #testis<-testo%>%arrange(value)%>%collect()%trop de donnees pour lancer
+    
+    #il ny a que des 1950 pour 36500 entrees. Alors quil faut 36500 * 67
+    #png(paste(bv,'_09995_ete.png',sep=''))
+    #plot(ecdf(res$max),xlab = 'Q (m3/s)',main=bv)
+    #dev.off()
+    
+    
+    #calcul des quantiles
+    
+    Fn<- ecdf_cunnane(res$max)
+    #prendre les codes pour cunnane
+    quantiles_qinter<-data.frame(quantiles=quantile(Fn, prob = c((1-(1/10000)),(1-(1/2000)),(1-(1/1000)),(1-(1/200)),(1-(1/100)),(1-(1/50)),(1-(1/20)),(1-(1/10)),(1-(1/2))), names = FALSE),row.names=c(10000,2000,1000,200,100,50,20,10,2))
+    quantiles_qinter_bvs[[bv]]<-quantiles_qinter
+  }
+  
+  
+  spark_disconnect(sc)
+  
+  #reorganiser la liste
+  
+  df <- data.frame(matrix(unlist(quantiles_qinter_bvs), nrow=length(quantiles_qinter_bvs), byrow=T))
+  rownames(df)<-names(quantiles_qinter_bvs)
+  colnames(df)<-c(10000,2000,1000,200,100,50,20,10,2)
+  write.csv(df,'quantiles_prt_outaouais_prelim_prsim_kappaLD_ete_09997.csv')
+}
