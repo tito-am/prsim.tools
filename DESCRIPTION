@@ -1,9 +1,9 @@
 Package: prsim.tools
 Type: Package
-Title: What the Package Does (Title Case)
+Title: Librairie complémentaire à PRSIM. Cette librarie permet de simuler, vérifier et créer les figures pour l'analyse des séries stochastiques.
 Version: 0.1.0
-Author: Who wrote it
-Maintainer: The package maintainer <yourself@somewhere.net>
+Author: Fabian Tito Arandia Martinez
+Maintainer: Fabian Tito Arandia Martinez <yourself@somewhere.net>
 Description: More about what it does (maybe more than one line)
     Use four spaces when indenting paragraphs within the Description.
 License: What license is it under?
