@@ -167,3 +167,54 @@ calcul_prsim_vers_statistiques_sommaires_angliers<-function(mainDir2){
   return(res)
 
 }
+
+
+#' calcul_prsim_statistiques_sommaires
+#'
+#' @param path
+#'
+#' @return
+#' @export
+#'
+#' @examples
+calcul_prsim_vers_statistiques_sommaires<-function(mainDir2){
+  
+  require(sparklyr)
+  require(dplyr)
+  require(tidyr)
+  
+  config <- spark_config()
+  
+  config$`sparklyr.shell.driver-memory` <- "4G"
+  config$`sparklyr.shell.executor-memory` <- "4G"
+  config$`spark.yarn.executor.memoryOverhead` <- "512"
+  
+  # Connect to local cluster with custom configuration
+  sc <- spark_connect(master = "local", config = config)
+  
+  spec_with_r <- sapply(read.csv('/media/tito/TIIGE/PRSIM/0.9995/angliers_sum/angliers_sum_0000001.csv', nrows = 1), class)
+  
+  subDir<-'angliers_sum'
+  testo<-spark_read_csv(sc = sc,path = paste0(mainDir2,subDir),columns=spec_with_r,memory = FALSE)
+  src_tbls(sc)
+  start_time = Sys.time()
+  df_mean_per_julian_day = testo %>% group_by(julian_day) %>% summarise(AvgQ=mean(angliers_sum,na.rm = TRUE))%>% collect()
+  end_time = Sys.time()
+  end_time - start_time
+  df_max_per_julian_day = testo %>% group_by(julian_day) %>% summarise(MaxQ=max(angliers_sum,na.rm = TRUE))%>% collect()
+  df_min_per_julian_day = testo %>% group_by(julian_day) %>% summarise(MinQ=min(angliers_sum,na.rm = TRUE))%>% collect()
+  
+  #mettre en ordre les statistiques sommaires de l'hydrogramme
+  df_mean_per_julian_day_ordered<-df_mean_per_julian_day[order(df_mean_per_julian_day$julian_day),]
+  df_max_per_julian_day_ordered<-df_max_per_julian_day[order(df_max_per_julian_day$julian_day),]
+  df_min_per_julian_day_ordered<-df_min_per_julian_day[order(df_min_per_julian_day$julian_day),]
+  
+  final_prsim_angliers<-c(df_mean_per_julian_day_ordered,df_max_per_julian_day_ordered,df_min_per_julian_day_ordered)
+  save(final_prsim_angliers,file='~/Documents/github/prsim/outaouais_sup_lynda/final_prsim_angliers.RData')
+
+  spark_disconnect(sc)
+  
+  return(res)
+  
+}
+
