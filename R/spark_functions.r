@@ -219,7 +219,7 @@ calcul_prsim_vers_statistiques_sommaires<-function(mainDir2){
     
     final_prsim_angliers<-c(df_mean_per_julian_day_ordered,df_max_per_julian_day_ordered,df_min_per_julian_day_ordered)
     filename<-paste0(mainDir2,'/','prsim_stats_rdata','/',subDir,'_stats.Rdata')
-    save(final_prsim_angliers,file='~/Documents/github/prsim/outaouais_sup_lynda/final_prsim_angliers.RData')
+    save(final_prsim_angliers,file=filename)
     
   }
 
