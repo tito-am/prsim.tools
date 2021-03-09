@@ -190,27 +190,28 @@ calcul_prsim_vers_statistiques_sommaires<-function(mainDir2){
   config$`spark.yarn.executor.memoryOverhead` <- "512"
   
   # Connect to local cluster with custom configuration
-  sc <- spark_connect(master = "local", config = config)
+  sc <- spark_connect(master = "local", config = config, spark_home = spark_home)
+  #sc <- spark_connect(master = "local", config = config)
   
   #le path peut être directement le repertoire où se trouvent tous les folders.
-  subDirs<-list.files(mainDir2)
+  subDirs<-list.files(paste0(mainDir2,'/bv_csv'))
   #exemple de fichier
-  fichiers_csv<-list.files(paste0(mainDir2,'/',subDirs[1]))
+  fichiers_csv<-list.files(paste0(mainDir2,'/bv_csv/',subDirs[2]))
   
-  spec_with_r <- sapply(read.csv(paste0(mainDir2,'/',subDirs[1],'/',fichiers_csv[1]), nrows = 1), class)
+  spec_with_r <- sapply(read.csv(paste0(mainDir2,'/bv_csv/',subDirs[2],'/',fichiers_csv[2]), nrows = 1), class)
   
   #création du dossier qui va contenir les fichiers rdata avec les stats sommaires
   dir.create(paste0(mainDir2,'/','prsim_stats_rdata'))
   for(subDir in subDirs ){
     
-    testo<-spark_read_csv(sc = sc,path = paste0(mainDir2,subDir),columns=spec_with_r,memory = FALSE)
+    testo<-spark_read_csv(sc = sc,path = paste0(mainDir2,'/bv_csv/',subDir),columns=spec_with_r,memory = FALSE)
     src_tbls(sc)
     start_time = Sys.time()
-    df_mean_per_julian_day = testo %>% group_by(julian_day) %>% summarise(AvgQ=mean(angliers_sum,na.rm = TRUE))%>% collect()
+    df_mean_per_julian_day = testo %>% group_by(julian_day) %>% summarise(AvgQ=mean(value,na.rm = TRUE))%>% collect()
     end_time = Sys.time()
     end_time - start_time
-    df_max_per_julian_day = testo %>% group_by(julian_day) %>% summarise(MaxQ=max(angliers_sum,na.rm = TRUE))%>% collect()
-    df_min_per_julian_day = testo %>% group_by(julian_day) %>% summarise(MinQ=min(angliers_sum,na.rm = TRUE))%>% collect()
+    df_max_per_julian_day = testo %>% group_by(julian_day) %>% summarise(MaxQ=max(value,na.rm = TRUE))%>% collect()
+    df_min_per_julian_day = testo %>% group_by(julian_day) %>% summarise(MinQ=min(value,na.rm = TRUE))%>% collect()
     
     #mettre en ordre les statistiques sommaires de l'hydrogramme
     df_mean_per_julian_day_ordered<-df_mean_per_julian_day[order(df_mean_per_julian_day$julian_day),]
@@ -222,10 +223,9 @@ calcul_prsim_vers_statistiques_sommaires<-function(mainDir2){
     save(final_prsim_angliers,file=filename)
     
   }
-
+  
   spark_disconnect(sc)
   
   #return(res)
   
 }
-
